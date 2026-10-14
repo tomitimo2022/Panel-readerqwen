@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Panel Reader</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f172a;--card:#1e293b;--card2:#334155;--text:#f1f5f9;--muted:#94a3b8;--accent:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--border:#475569}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+header{background:var(--card);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
+header h1{font-size:18px;font-weight:700}
+header .badge{background:var(--accent);color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+nav{display:flex;background:var(--card);border-bottom:1px solid var(--border)}
+nav button{flex:1;padding:12px;border:none;background:none;color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:.2s}
+nav button.active{color:var(--accent);border-bottom-color:var(--accent)}
+.page{display:none;padding:16px;max-width:600px;margin:0 auto}
+.page.active{display:block}
+.card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:12px;border:1px solid var(--border)}
+.card h3{font-size:14px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.panel-name{font-size:20px;font-weight:700;margin-bottom:4px}
+.panel-sub{font-size:13px;color:var(--muted)}
+.progress-bar{height:6px;background:var(--card2);border-radius:3px;margin:12px 0;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:.2s;width:100%}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-success{background:var(--green);color:#fff}
+.btn-success:hover{background:#16a34a}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-outline:hover{background:var(--card2)}
+.btn-sm{padding:8px 14px;font-size:13px;width:auto}
+.btn-row{display:flex;gap:8px;margin-top:12px}
+.btn-row .btn{flex:1}
+.camera-area{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:4/3;margin-bottom:12px}
+.camera-area video,.camera-area canvas{width:100%;height:100%;object-fit:cover}
+.camera-area canvas{position:absolute;top:0;left:0}
+.overlay-guide{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:50%;border:3px dashed var(--yellow);border-radius:8px;pointer-events:none;transition:border-color .3s}
+.overlay-guide.green{border-color:var(--green);border-style:solid}
+.overlay-guide.red{border-color:var(--red)}
+.camera-status{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;color:#fff;backdrop-filter:blur(4px)}
+.camera-status.green{background:rgba(34,197,94,.85)}
+.camera-status.yellow{background:rgba(234,179,8,.85);color:#000}
+.camera-status.red{background:rgba(239,68,68,.85)}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.field{background:var(--card2);border-radius:8px;padding:10px}
+.field-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.field-value{font-size:22px;font-weight:700;margin-top:2px}
+.field-value.uncertain{color:var(--yellow)}
+.field-value.error{color:var(--red)}
+.crop-preview{width:100%;height:40px;background:var(--card2);border-radius:4px;margin-top:4px;object-fit:cover}
+.record-item{background:var(--card);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.record-item .ri-name{font-weight:600;font-size:14px}
+.record-item .ri-data{font-size:12px;color:var(--muted);margin-top:2px}
+.record-item .ri-time{font-size:11px;color:var(--muted)}
+.empty-state{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+.settings-group{margin-bottom:16px}
+.settings-group label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+.settings-group input,.settings-group select,.settings-group textarea{width:100%;padding:10px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px}
+.settings-group textarea{min-height:120px;font-family:monospace;font-size:12px}
+.toggle{display:flex;align-items:center;gap:10px;padding:10px 0}
+.toggle input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent)}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.status-dot.on{background:var(--green)}
+.status-dot.off{background:var(--red)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:10px;color:#fff;font-size:14px;font-weight:600;z-index:100;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+.toast.success{background:var(--green)}
+.toast.error{background:var(--red)}
+.toast.info{background:var(--accent)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--card);border-radius:14px;padding:20px;max-width:400px;width:100%;border:1px solid var(--border)}
+.modal h3{margin-bottom:12px;font-size:16px}
+.modal .btn{margin-top:8px}
+.hidden{display:none!important}
+@media(max-width:400px){.field-value{font-size:18px}.panel-name{font-size:17px}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ Panel Reader</h1>
+  <span class="badge" id="headerBadge">Ready</span>
+</header>
+
+<nav>
+  <button class="active" data-page="capture">📷 Capture</button>
+  <button data-page="records">📋 Records</button>
+  <button data-page="settings">⚙️ Settings</button>
+</nav>
+
+<!-- CAPTURE PAGE -->
+<div class="page active" id="page-capture">
+  <div class="card" id="panelCard">
+    <div class="panel-name" id="currentPanel">—</div>
+    <div class="panel-sub" id="currentScreen">Tap Start to begin</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <div class="card hidden" id="cameraCard">
+    <div class="camera-area">
+      <video id="camVideo" autoplay playsinline muted></video>
+      <canvas id="camCanvas"></canvas>
+      <div class="overlay-guide" id="overlayGuide"></div>
+      <div class="camera-status red" id="camStatus">Initializing…</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnCapture" onclick="doCapture()"> Capture</button>
+      <button class="btn btn-outline" id="btnStopCam" onclick="stopCamera()">Stop</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="uploadCard">
+    <h3>Upload Photo</h3>
+    <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" onchange="handleFile(event)">
+    <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()">📁 Choose Photo</button>
+  </div>
+
+  <div class="card hidden" id="fieldsCard">
+    <h3>Detected Values</h3>
+    <div class="field-grid" id="fieldGrid"></div>
+    <div class="btn-row">
+      <button class="btn btn-success" onclick="confirmReadings()">✅ Confirm</button>
+      <button class="btn btn-outline" onclick="retakePhoto()">🔄 Retake</button>
+    </div>
+  </div>
+
+  <div class="btn-row" id="startRow">
+    <button class="btn btn-primary" onclick="startSession()">▶️ Start Session</button>
+  </div>
+</div>
+
+<!-- RECORDS PAGE -->
+<div class="page" id="page-records">
+  <div class="card">
+    <h3>Session Records</h3>
+    <div id="recordsList"></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-success" onclick="exportCSV()">📥 Export CSV</button>
+    <button class="btn btn-danger" onclick="clearRecords()">🗑️ Clear All</button>
+  </div>
+</div>
+
+<!-- SETTINGS PAGE -->
+<div class="page" id="page-settings">
+  <div class="card">
+    <h3>Panel Order</h3>
+    <div class="settings-group">
+      <label>Edit panel list (one per line, format: Name|Brand)</label>
+      <textarea id="panelListInput"></textarea>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="savePanelList()">Save List</button>
+  </div>
+  <div class="card">
+    <h3>Options</h3>
+    <div class="toggle">
+      <input type="checkbox" id="optAutoCapture" checked>
+      <label for="optAutoCapture">Auto-capture on green</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="optLiveGuide">
+      <label for="optLiveGuide">Live camera guide (v2)</label>
+    </div>
+  </div>
+  <div class="card">
+    <h3>About</h3>
+    <p style="font-size:13px;color:var(--muted);line-height:1.6">
+      Panel Reader captures generator and panel readings using your phone camera. 
+      Supports ComAp and Schneider Electric panels. All processing runs locally on your device.
+    </p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Panel Configuration ──
+const DEFAULT_PANELS = [
+  {name:'G6',brand:'comap'},{name:'G4',brand:'comap'},{name:'G1',brand:'comap'},
+  {name:'G5',brand:'comap'},{name:'G3',brand:'comap'},{name:'G2',brand:'comap'},
+  {name:'EKO ACADEMY',brand:'schneider'},{name:'INCOMER',brand:'schneider'},
+  {name:'WATER TREATMENT PLANT',brand:'schneider'},{name:'EMBASSY',brand:'schneider'},
+  {name:'ITB BATCH PLANT',brand:'schneider'},{name:'BUS SECTION',brand:'schneider'},
+  {name:'SSIII OUTGOING',brand:'schneider'},{name:'INTER-CONNECT',brand:'schneider'},
+  {name:'SSII OUTGOING',brand:'schneider'},{name:'ORCA MALL',brand:'schneider'},
+  {name:'FEEDER LOOP',brand:'schneider'}
+];
+
+const SCREENS = {
+  comap: [
+    {id:'generator',label:'Generator Screen [3/10]',fields:['vL1','vL2','vL3','iL1','iL2','iL3','freq']},
+    {id:'power',label:'Power Screen [2/10]',fields:['kW','pf','kvar','kVA','kW1','kW2','kW3','pf1','pf2','pf3','kvar1','kvar2','kvar3','kVA1','kVA2','kVA3']}
+  ],
+  schneider: [
+    {id:'home',label:'Home Screen',fields:['current','kW','kvar']},
+    {id:'power',label:'POWER Screen',fields:['kW','kvar','kVA','pf','freq']}
+  ]
+};
+
+// ── State ──
+let panels = [];
+let currentIdx = 0;
+let currentScreenIdx = 0;
+let records = [];
+let camStream = null;
+let detectedFields = {};
+
+// ── Init ──
+function init() {
+  loadPanels();
+  loadRecords();
+  renderPanelList();
+  setupNav();
+  updateUI();
+}
+
+function loadPanels() {
+  const saved = localStorage.getItem('panelList');
+  panels = saved ? JSON.parse(saved) : [...DEFAULT_PANELS];
+}
+
+function loadRecords() {
+  const saved = localStorage.getItem('panelRecords');
+  records = saved ? JSON.parse(saved) : [];
+}
+
+function saveRecords() {
+  localStorage.setItem('panelRecords', JSON.stringify(records));
+}
+
+function setupNav() {
+  document.querySelectorAll('nav button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('page-' + btn.dataset.page).classList.add('active');
+      if (btn.dataset.page === 'records') renderRecords();
+    });
+  });
+}
+
+// ── Session ──
+function startSession() {
+  currentIdx = 0;
+  currentScreenIdx = 0;
+  document.getElementById('startRow').classList.add('hidden');
+  document.getElementById('cameraCard').classList.remove('hidden');
+  document.getElementById('uploadCard').classList.remove('hidden');
+  document.getElementById('fieldsCard').classList.add('hidden');
+  startCamera();
+  updateUI();
+}
+
+function updateUI() {
+  if (currentIdx >= panels.length) {
+    document.getElementById('currentPanel').textContent = '✅ Session Complete!';
+    document.getElementById('currentScreen').textContent = records.length + ' readings recorded';
+    document.getElementById('progressFill').style.width = '100%';
+    document.getElementById('headerBadge').textContent = 'Done';
+    return;
+  }
+  const panel = panels[currentIdx];
+  const screen = SCREENS[panel.brand][currentScreenIdx];
+  document.getElementById('currentPanel').textContent = panel.name;
+  document.getElementById('currentScreen').textContent = screen.label;
+  const totalScreens = panels.length * 2;
+  const done = currentIdx * 2 + currentScreenIdx;
+  document.getElementById('progressFill').style.width = (done / totalScreens * 100) + '%';
+  document.getElementById('headerBadge').textContent = (currentIdx + 1) + '/' + panels.length;
+}
+
+// ── Camera ──
+async function startCamera() {
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: {facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 960}}
+    });
+    const video = document.getElementById('camVideo');
+    video.srcObject = camStream;
+    setCamStatus('Ready', 'yellow');
+  } catch (e) {
+    setCamStatus('Camera denied', 'red');
+  }
+}
+
+function stopCamera() {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  document.getElementById('camVideo').srcObject = null;
+}
+
+function setCamStatus(text, color) {
+  const el = document.getElementById('camStatus');
+  el.textContent = text;
+  el.className = 'camera-status ' + color;
+  const guide = document.getElementById('overlayGuide');
+  guide.className = 'overlay-guide' + (color === 'green' ? ' green' : color === 'red' ? ' red' : '');
+}
+
+// ── Capture ──
+function doCapture() {
+  const video = document.getElementById('camVideo');
+  const canvas = document.getElementById('camCanvas');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  processImage(canvas);
+}
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.getElementById('camCanvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    canvas.getContext('2d').drawImage(img, 0, 0);
+    processImage(canvas);
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+// ── OCR / Field Detection (Simulated) ──
+function processImage(canvas) {
+  setCamStatus('Processing…', 'yellow');
+  const panel = panels[currentIdx];
+  const screen = SCREENS[panel.brand][currentScreenIdx];
+  
+  // Simulated detection - in production this would use Tesseract.js or custom OCR
+  setTimeout(() => {
+    detectedFields = {};
+    screen.fields.forEach(f => {
+      detectedFields[f] = {value: '—', uncertain: true};
+    });
+    renderFields();
+    document.getElementById('fieldsCard').classList.remove('hidden');
+    setCamStatus('Captured', 'green');
+    showToast('Photo captured - review values', 'info');
+  }, 500);
+}
+
+function renderFields() {
+  const grid = document.getElementById('fieldGrid');
+  grid.innerHTML = '';
+  Object.entries(detectedFields).forEach(([key, data]) => {
+    const div = document.createElement('div');
+    div.className = 'field';
+    div.innerHTML = `<div class="field-label">${key}</div>
+      <div class="field-value ${data.uncertain ? 'uncertain' : ''}">${data.value}</div>`;
+    grid.appendChild(div);
+  });
+}
+
+function confirmReadings() {
+  const panel = panels[currentIdx];
+  const screen = SCREENS[panel.brand][currentScreenIdx];
+  const record = {
+    panel: panel.name,
+    brand: panel.brand,
+    screen: screen.id,
+    timestamp: new Date().toISOString(),
+    fields: {...detectedFields}
+  };
+  records.push(record);
+  saveRecords();
+  advanceScreen();
+}
+
+function retakePhoto() {
+  document.getElementById('fieldsCard').classList.add('hidden');
+  setCamStatus('Ready', 'yellow');
+}
+
+function advanceScreen() {
+  currentScreenIdx++;
+  if (currentScreenIdx >= SCREENS[panels[currentIdx].brand].length) {
+    currentScreenIdx = 0;
+    currentIdx++;
+  }
+  document.getElementById('fieldsCard').classList.add('hidden');
+  updateUI();
+  if (currentIdx >= panels.length) {
+    stopCamera();
+    showToast('Session complete!', 'success');
+  }
+}
+
+function skipPanel() {
+  currentScreenIdx = 0;
+  currentIdx++;
+  updateUI();
+  showToast('Panel skipped', 'info');
+}
+
+// ── Records ──
+function renderRecords() {
+  const list = document.getElementById('recordsList');
+  if (!records.length) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">📋</div>No records yet</div>';
+    return;
+  }
+  list.innerHTML = records.map((r, i) => `
+    <div class="record-item">
+      <div>
+        <div class="ri-name">${r.panel} <span style="color:var(--muted);font-weight:400">(${r.screen})</span></div>
+        <div class="ri-data">${Object.entries(r.fields).map(([k,v]) => k+': '+v.value).join(', ')}</div>
+        <div class="ri-time">${new Date(r.timestamp).toLocaleString()}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteRecord(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function deleteRecord(i) {
+  records.splice(i, 1);
+  saveRecords();
+  renderRecords();
+}
+
+function clearRecords() {
+  if (confirm('Delete all records?')) { records = []; saveRecords(); renderRecords(); showToast('Cleared', 'info'); }
+}
+
+function exportCSV() {
+  if (!records.length) { showToast('No records', 'error'); return; }
+  const headers = ['Panel','Brand','Screen','Timestamp',...new Set(records.flatMap(r => Object.keys(r.fields)))];
+  const rows = records.map(r => [r.panel, r.brand, r.screen, r.timestamp, ...headers.slice(4).map(h => r.fields[h]?.value || '')]);
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'panel-readings-' + Date.now() + '.csv';
+  a.click();
+  showToast('CSV exported', 'success');
+}
+
+// ── Settings ──
+function renderPanelList() {
+  document.getElementById('panelListInput').value = panels.map(p => p.name + '|' + p.brand).join('\n');
+}
+
+function savePanelList() {
+  const lines = document.getElementById('panelListInput').value.trim().split('\n').filter(Boolean);
+  panels = lines.map(l => {
+    const [name, brand] = l.split('|').map(s => s.trim());
+    return {name, brand: brand || 'schneider'};
+  });
+  localStorage.setItem('panelList', JSON.stringify(panels));
+  currentIdx = 0;
+  currentScreenIdx = 0;
+  updateUI();
+  showToast('Panel list saved', 'success');
+}
+
+// ── Toast ──
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || 'info');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+init();
+</script>
+</body>
+</html>
